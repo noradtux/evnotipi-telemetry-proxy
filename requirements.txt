@@ -1,0 +1,5 @@
+aiohttp>=3.8.6
+influxdb-client>=1.38.0
+msgpack>=1.0.7
+pyRFC3339>=1.1
+aiomqtt>=1.2.1
