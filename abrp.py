@@ -1,7 +1,7 @@
 from time import monotonic
 from json import dumps
 import logging
-from aiohttp import ClientSession, ClientConnectionError
+from aiohttp import ClientSession, ClientConnectionError, ContentTypeError
 
 log = logging.getLogger('ABRP')
 
@@ -62,13 +62,22 @@ class Abrp():
                 log.debug(f'Send payload {json}')
                 ret = await self._session.post(API_URL + "/send", json=json)
                 async with ret:
-                    ret_json = await ret.json()
-                    if ret.status != 200 or ret_json['status'] != "ok":
-                        log.error(f'Submit error: {dumps(json)} {str(ret)} {ret.reason}')
+                    if ret.content_type == 'application/json':
+                        ret_json = await ret.json()
+                        status = ret_json['status']
                     else:
-                        log.info(f'Post result: {ret.status} {ret.reason}')
+                        status = await ret.text()
+
+                    if ret.status != 200 or status != "ok":
+                        log.error(f'Submit error: {dumps(json)} {status=} {ret.reason=}')
+                    else:
+                        log.info(f'Post result: {ret.status=} {ret.reason=}')
 
             except ClientConnectionError as err:
-                log.error(f'ConnectionError: {err}')
+                log.error(f'ClientConnectionError: {err}')
+            except ContentTypeError as err:
+                async with ret:
+                    text = await ret.text()
+                    log.error(f'ContentTypeError: {err} {ret.content_type=} {text=}')
 
             self._next_transmit = now + self._interval
