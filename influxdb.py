@@ -1,19 +1,19 @@
+""" write data to influxdb """
 from datetime import datetime, timezone
-from time import monotonic
 import logging
-from influxdb_client import WriteOptions
 from influxdb_client.client.exceptions import InfluxDBError
 from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync
 import pyrfc3339
 
 log = logging.getLogger('InfluxDB')
 
-INT_FIELD_LIST = ('charging', 'fanFeedback', 'fanStatus', 'fix_mode',
-                  'normalChargePort', 'rapidChargePort', 'submit_queue_len')
-STR_FIELD_LIST = ('cartype', 'akey', 'gps_device')
+INT_FIELD_LIST = {'charging', 'fanFeedback', 'fanStatus', 'fix_mode',
+                  'normalChargePort', 'rapidChargePort', 'submit_queue_len'}
+STR_FIELD_LIST = {'cartype', 'akey', 'gps_device'}
 
 
 class InfluxDB():
+    """ write data to influxdb """
     def __init__(self, settings, carid):
         log.info('Initializing InfluxDB')
 
@@ -24,14 +24,12 @@ class InfluxDB():
                 org=settings['org'],
                 token=settings['token'])
         self._iwrite = self._influx.write_api()
-        #self._field_states = {}
 
     async def transmit(self, dataset):
-        now = monotonic()
-
+        """ forward data to db as received """
         points = []
         for data in dataset:
-            point = {'measurement': 'telemetry', 'tags': data['tags']}
+            point = {'measurement': 'telemetry'}
 
             fields = {}
             for key, value in data['fields'].items():
@@ -50,9 +48,14 @@ class InfluxDB():
             points.append(point)
 
         try:
-            log.debug(f'enqueue {points=}')
+            log.debug('enqueue %s', points)
             await self._iwrite.write(bucket=self._bucket,
                                      record=points)
             points.clear()
         except InfluxDBError as exception:
             log.warning(str(exception))
+
+    @staticmethod
+    def which_fields():
+        """ Return set of fields this module likes to use """
+        return None     # None meaning "all"

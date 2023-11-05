@@ -1,72 +1,45 @@
 #!/usr/bin/env python3
 
 import logging
-from lzma import decompress
+from lzma import compress, decompress
 from asyncio import gather
 import json
 from aiohttp import web
-from msgpack import unpackb
-
-import aiomqtt
+from msgpack import packb, unpackb
 
 from evnotify import EVNotify
 from abrp import Abrp
 from influxdb import InfluxDB
+from mqtt import Mqtt
 
 with open('config.json', 'r') as config:
     C = json.loads(config.read())
 
-SVC_SETTINGS = {}
-
-#logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
 AUTH_KEYS = C['auth_keys']
 ABRP_API_KEY = C['abrp_api_key']
 
 
-EVN = {}
-async def xmit_evnotify(carid, settings, data, fields):
-    if carid not in EVN:
-        EVN[carid] = EVNotify(settings)
-
-    await EVN[carid].transmit(fields)
+def msg_encode(msg):
+    """ encode and compress message """
+    return compress(packb(msg))
 
 
-ABRP = {}
-async def xmit_abrp(carid, settings, data, fields):
-    if carid not in ABRP:
-        ABRP[carid] = Abrp(settings, ABRP_API_KEY)
-
-    await ABRP[carid].transmit(fields)
+def msg_decode(msg):
+    """ decompress and decode message """
+    return unpackb(decompress(msg), use_list=False)
 
 
-INFLUXDB = {}
-async def xmit_influxdb(carid, settings, data, fields):
-    if carid not in INFLUXDB:
-        INFLUXDB[carid] = InfluxDB(settings, carid)
-
-    await INFLUXDB[carid].transmit(data)
-
-
-async def xmit_mqtt(carid, settings, data, fields):
-    if 'SOC_DISPLAY' in fields:
-        async with aiomqtt.Client(C['mqtt_server']) as client:
-            await client.publish(f'Car/{carid}/SOC', payload=float(fields['SOC_DISPLAY']))
-
-
-SERVICES = {
-        'evnotify': xmit_evnotify,
-        'abrp': xmit_abrp,
-        'influxdb': xmit_influxdb,
-        'mqtt': xmit_mqtt,
-        }
+SERVICES = {}
 
 routes = web.RouteTableDef()
 
 
 @routes.post(r'/setsvcsettings/{id}')
 async def set_service_settings(request):
+    """ get service configs from client and initialize backends accordingly """
     if request.headers.get('Authorization') not in AUTH_KEYS:
         return web.Response(status=401)
 
@@ -74,37 +47,59 @@ async def set_service_settings(request):
 
     data = await request.read()
     settings = unpackb(decompress(data), use_list=False)  # tuples are quicker
-    SVC_SETTINGS[carid] = settings
 
-    return web.Response()
+    # not sure how to hadle mqtt yet. Hardcode for now...
+    if 'mqtt' not in settings:
+        settings['mqtt'] = {'mqtt_server': C['mqtt_server'], 'enabled': True}
 
-last_fields = {}
+    fields = set()
+    for service, svc_settings in settings:
+        if config['enabled'] is False:
+            continue
+
+        match service:
+            case 'mqtt':
+                svc = Mqtt(svc_settings, carid)
+            case 'influxdb':
+                svc = InfluxDB(svc_settings, carid)
+            case 'abrp':
+                svc = Abrp(svc_settings, ABRP_API_KEY)
+            case 'evnotify':
+                svc = EVNotify(svc_settings)
+            case _:
+                # Unknown service, skip rest of loop
+                continue
+
+        SERVICES[carid][service] = svc
+        svc_fields = svc.which_fields()
+        if svc_fields is None:
+            fields = None
+        if fields is not None:
+            fields |= svc.which_fields()
+
+    return web.Response(body=msg_encode({'fields': fields}))
+
 
 @routes.post('/transmit/{id}')
 async def transmit(request):
+    """ receive data and forward it to backends """
     if request.headers.get('Authorization') not in AUTH_KEYS:
         return web.Response(status=401)
 
     carid = request.match_info['id']
 
-    if carid not in SVC_SETTINGS:
+    if carid not in SERVICES:
         return web.Response(status=402, text='settings required')
 
     data = await request.read()
-    points = unpackb(decompress(data), use_list=False)
+    points = msg_decode(data)
 
-    if carid not in last_fields:
-        last_fields[carid] = {}
-
-    last_fields[carid].update(points[-1]['fields'])  # we only get changed fields. Keep unchanged fields around
-    
-    #log.debug(f'{len(points)=}')
-
-    svc_settings = SVC_SETTINGS[carid]
-    await gather(*[SERVICES[svc](carid, settings, points, last_fields[carid])
-                   for svc, settings in svc_settings.items()])
+    services = [svc.transmit(points)
+                for svc in SERVICES[carid].values()]
+    await gather(*services)
 
     return web.Response()
+
 
 if __name__ == '__main__':
     app = web.Application()

@@ -27,6 +27,7 @@ PID_MAP = {
 
 API_URL = "https://api.iternio.com/1/tlm"
 
+
 class Abrp():
     """ State wrapper """
 
@@ -37,17 +38,21 @@ class Abrp():
         self._interval = settings.get('interval', 5)
         self._next_transmit = 0
         self._session = ClientSession()
-        self._last_data = {}
+        self._last_payload = {}
 
-    async def transmit(self, fields):
+    async def transmit(self, dataset):
+        """ forward data to ABRP """
         now = monotonic()
+        fields = dataset[-1]
 
-        if now >= self._next_transmit and 'speed' in fields:
-            payload = {
-                    'utc': int(fields['timestamp']),
-                    'power': 0,
-                    'current': 0,
-                    }
+        if now >= self._next_transmit:
+            payload = self._last_payload
+            payload.update({
+                'utc': int(fields['timestamp']),
+                'power': 0,
+                'current': 0,
+                'speed': 0,
+                })
             payload.update({v[0]: round(fields[k], v[1]) for k, v in PID_MAP.items()
                             if k in fields and fields[k] is not None})
 
@@ -56,10 +61,10 @@ class Abrp():
                 payload['capacity'] /= 1000  # Wh -> kWh
 
             try:
-                json={'api_key': self._api_key,
+                json = {'api_key': self._api_key,
                         'token': self._token,
                         'tlm': payload}
-                log.debug(f'Send payload {json}')
+                log.debug('Send payload %s', json)
                 ret = await self._session.post(API_URL + "/send", json=json)
                 async with ret:
                     if ret.content_type == 'application/json':
@@ -81,3 +86,8 @@ class Abrp():
                     log.error(f'ContentTypeError: {err} {ret.content_type=} {text=}')
 
             self._next_transmit = now + self._interval
+
+    @staticmethod
+    def which_fields():
+        """ Return set of fields this module likes to use """
+        return set(PID_MAP.keys())

@@ -22,6 +22,7 @@ EXTENDED_FIELDS = {         # value is decimal places
 
 log = logging.getLogger('EVNotify')
 
+
 class EVNotify():
     """ class to keep state """
 
@@ -30,18 +31,32 @@ class EVNotify():
         self._evn = EVNotifyAPI.EVNotify(settings['akey'], settings['token'])
         self._next_transmit = 0
         self._interval = settings.get('interval', 30)
+        self._last_fields = {}
+        self._last_soc_d = None
+        self._last_soc_b = None
 
-    async def transmit(self, fields):
+    async def transmit(self, dataset):
+        """ Forward data to EVNotify """
+        data = dataset[-1]
         evn = self._evn
+        fields = self._last_fields
+        fields.update({key: value for key, value in data.items()
+                       if key in EXTENDED_FIELDS})
+        if 'SOC_DISPLAY' in data:
+            self._last_soc_d = data['SOC_DISPLAY']
+        if 'SOC_BMS' in data:
+            self._last_soc_b = data['SOC_BMS']
 
         now = monotonic()
 
-        if now >= self._next_transmit and 'SOC_DISPLAY' in fields:
+        if now >= self._next_transmit:
+            soc_display = self._last_soc_d
+            soc_bms = self._last_soc_b
             try:
-                extended_data = {name: round(fields[name], decimals)
-                                 for name, decimals in EXTENDED_FIELDS.items()
-                                 if fields.get(name) is not None}
-                await evn.setSOC(fields['SOC_DISPLAY'], fields['SOC_BMS'])
+                extended_data = {name: round(value, EXTENDED_FIELDS[name])
+                                 for name, value in fields.items()
+                                 if value is not None}
+                await evn.setSOC(soc_display, soc_bms)
                 await evn.setExtended(extended_data)
 
                 is_charging = bool(fields['charging'])
@@ -58,3 +73,8 @@ class EVNotify():
                 log.error(f'Communication Error: {err}')
             finally:
                 self._next_transmit = now + self._interval
+
+    @staticmethod
+    def which_fields():
+        """ Return set of fields this module likes to use """
+        return set(('SOC_DISPLAY', 'SOC_BMS')) | set(EXTENDED_FIELDS.keys())
