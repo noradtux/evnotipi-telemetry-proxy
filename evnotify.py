@@ -59,10 +59,10 @@ class EVNotify():
                 await evn.setSOC(soc_display, soc_bms)
                 await evn.setExtended(extended_data)
 
-                is_charging = bool(fields['charging'])
-                is_connected = bool(fields['normalChargePort'] or fields['rapidChargePort'])
+                is_charging = bool(fields.get('charging', False))
+                is_connected = bool(fields.get('normalChargePort') or fields.get('rapidChargePort'))
 
-                if fields['fix_mode'] > 1 and not is_charging and not is_connected:
+                if fields.get('fix_mode', 0) > 1 and not is_charging and not is_connected:
                     location = {a: fields[a]
                                 for a in ('latitude', 'longitude', 'speed')}
                     await evn.setLocation({'location': location})
