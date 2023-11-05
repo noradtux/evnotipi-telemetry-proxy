@@ -9,7 +9,7 @@ log = logging.getLogger('InfluxDB')
 
 INT_FIELD_LIST = {'charging', 'fanFeedback', 'fanStatus', 'fix_mode',
                   'normalChargePort', 'rapidChargePort', 'submit_queue_len'}
-STR_FIELD_LIST = {'cartype', 'akey', 'gps_device'}
+STR_FIELD_LIST = {'carid', 'cartype', 'akey', 'gps_device'}
 
 
 class InfluxDB():
@@ -29,10 +29,10 @@ class InfluxDB():
         """ forward data to db as received """
         points = []
         for data in dataset:
-            point = {'measurement': 'telemetry'}
+            point = {'measurement': 'telemetry', 'tags': {}}
 
             fields = {}
-            for key, value in data['fields'].items():
+            for key, value in data.items():
                 if value is None:
                     continue
 
@@ -42,7 +42,7 @@ class InfluxDB():
                     fields[key] = int(value) if key in INT_FIELD_LIST else float(value)
 
             point['time'] = pyrfc3339.generate(datetime.fromtimestamp(
-                data['time'], timezone.utc))
+                data['timestamp'], timezone.utc))
             point['fields'] = fields
 
             points.append(point)

@@ -50,11 +50,13 @@ async def set_service_settings(request):
 
     # not sure how to hadle mqtt yet. Hardcode for now...
     if 'mqtt' not in settings:
-        settings['mqtt'] = {'mqtt_server': C['mqtt_server'], 'enabled': True}
+        settings['mqtt'] = {'mqtt_server': C['mqtt_server'], 'enable': True}
+
+    SERVICES[carid] = {}
 
     fields = set()
-    for service, svc_settings in settings:
-        if config['enabled'] is False:
+    for service, svc_settings in settings.items():
+        if svc_settings.get('enable') is not True:
             continue
 
         match service:
