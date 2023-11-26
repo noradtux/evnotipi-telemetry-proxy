@@ -71,7 +71,7 @@ class Abrp():
                         ret_json = await ret.json()
                         status = ret_json['status']
                     else:
-                        status = await ret.text()
+                        status = (await ret.text())[:50]  # shorten potential cloud-flare response
 
                     if ret.status != 200 or status != "ok":
                         log.error(f'Submit error: {dumps(json)} {status=} {ret.reason=}')
