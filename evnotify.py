@@ -43,10 +43,10 @@ class EVNotify():
             fields.update({key: value for key, value in data.items()
                 if key in EXTENDED_FIELDS})
 
-        if 'SOC_DISPLAY' in fields:
-            self._last_soc_d = fields['SOC_DISPLAY']
-        if 'SOC_BMS' in fields:
-            self._last_soc_b = fields['SOC_BMS']
+            if 'SOC_DISPLAY' in data:
+                self._last_soc_d = data['SOC_DISPLAY']
+            if 'SOC_BMS' in data:
+                self._last_soc_b = data['SOC_BMS']
 
         now = monotonic()
 
