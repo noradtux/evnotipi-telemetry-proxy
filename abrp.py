@@ -6,6 +6,7 @@ from aiohttp import ClientSession, ClientConnectionError, ContentTypeError
 log = logging.getLogger('ABRP')
 
 PID_MAP = {
+    'timestamp':        ['timestamp', 0],
     'SOC_DISPLAY':      ['soc', 1],                 # %
     'dcBatteryPower':   ['power', 2],               # kW
     'speed':            ['speed', 1],               # km/h
@@ -43,7 +44,10 @@ class Abrp():
     async def transmit(self, dataset):
         """ forward data to ABRP """
         now = monotonic()
-        fields = dataset[-1]
+        fields = {}
+        for data in dataset:
+            fields.update({key: value for key, value in data.items()
+                if key in PID_MAP})
 
         if now >= self._next_transmit:
             payload = self._last_payload
