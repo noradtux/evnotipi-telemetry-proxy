@@ -3,6 +3,7 @@
 import logging
 from lzma import compress, decompress
 from asyncio import gather
+import argparse
 import json
 from aiohttp import web
 from msgpack import packb, unpackb
@@ -11,6 +12,10 @@ from evnotify import EVNotify
 from abrp import Abrp
 from influxdb import InfluxDB
 from mqtt import Mqtt
+
+parser = argparse.ArgumentParser(description='Proxy for EVNotiPi telemetry')
+parser.add_argument('--path')
+parser.add_argument('--port')
 
 with open('config.json', 'r') as config:
     C = json.loads(config.read())
@@ -104,6 +109,7 @@ async def transmit(request):
 
 
 if __name__ == '__main__':
+    args = parser.parse_args()
     app = web.Application()
     app.add_routes(routes)
-    web.run_app(app, host='::1', port=8001)
+    web.run_app(app, path=args.path, port=args.port)
