@@ -40,8 +40,9 @@ class EVNotify():
         evn = self._evn
         fields = self._last_fields
         for data in dataset:
-            fields.update({key: value for key, value in data.items()
-                if key in EXTENDED_FIELDS})
+            fields.update({key: round(data[key], decimals)
+                           for key, decimals in EXTENDED_FIELDS.items()
+                           if key in data and data[key] is not None})
 
             if 'SOC_DISPLAY' in data:
                 self._last_soc_d = data['SOC_DISPLAY']
@@ -54,11 +55,8 @@ class EVNotify():
             soc_display = self._last_soc_d
             soc_bms = self._last_soc_b
             try:
-                extended_data = {name: round(value, EXTENDED_FIELDS[name])
-                                 for name, value in fields.items()
-                                 if value is not None}
                 await evn.setSOC(soc_display, soc_bms)
-                await evn.setExtended(extended_data)
+                await evn.setExtended(fields)
 
                 is_charging = bool(fields.get('charging', False))
                 is_connected = bool(fields.get('normalChargePort') or fields.get('rapidChargePort'))

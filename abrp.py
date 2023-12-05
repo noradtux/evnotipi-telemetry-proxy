@@ -1,4 +1,4 @@
-from time import monotonic
+from time import monotonic, time
 from json import dumps
 import logging
 from aiohttp import ClientSession, ClientConnectionError, ContentTypeError
@@ -6,24 +6,24 @@ from aiohttp import ClientSession, ClientConnectionError, ContentTypeError
 log = logging.getLogger('ABRP')
 
 PID_MAP = {
-    'timestamp':        ['timestamp', 0],
-    'SOC_DISPLAY':      ['soc', 1],                 # %
-    'dcBatteryPower':   ['power', 2],               # kW
-    'speed':            ['speed', 1],               # km/h
-    'latitude':         ['lat', 9],                 # °
-    'longitude':        ['lon', 9],                 # °
-    'charging':         ['is_charging', 0],         # bool 1/0
-    'rapidChargePort':  ['is_dcfc', 0],             # bool 1/0
-    'isParked':         ['is_parked', 0],           # bool 1/0
-    'cumulativeEnergyCharged': ['kwh_charged', 2],  # kWh
-    'soh':              ['soh', 1],                 # %
-    'heading':          ['heading', 2],             # °
-    'altitude':         ['elevation', 1],           # m
-    'externalTemperature':   ['ext_temp', 1],       # °C
-    'batteryAvgTemperature': ['batt_temp', 1],      # °C
-    'dcBatteryVoltage': ['voltage', 2],             # V
-    'dcBatteryCurrent': ['current', 2],             # A
-    'odo':              ['odometer', 2],            # km
+    'timestamp':        ('timestamp', 0),
+    'SOC_DISPLAY':      ('soc', 1),                 # %
+    'dcBatteryPower':   ('power', 2),               # kW
+    'speed':            ('speed', 1),               # km/h
+    'latitude':         ('lat', 9),                 # °
+    'longitude':        ('lon', 9),                 # °
+    'charging':         ('is_charging', 0),         # bool 1/0
+    'rapidChargePort':  ('is_dcfc', 0),             # bool 1/0
+    'isParked':         ('is_parked', 0),           # bool 1/0
+    'cumulativeEnergyCharged': ('kwh_charged', 2),  # kWh
+    'soh':              ('soh', 1),                 # %
+    'heading':          ('heading', 2),             # °
+    'altitude':         ('elevation', 1),           # m
+    'externalTemperature':   ('ext_temp', 1),       # °C
+    'batteryAvgTemperature': ('batt_temp', 1),      # °C
+    'dcBatteryVoltage': ('voltage', 2),             # V
+    'dcBatteryCurrent': ('current', 2),             # A
+    'odo':              ('odometer', 2),            # km
 }
 
 API_URL = "https://api.iternio.com/1/tlm"
@@ -39,27 +39,22 @@ class Abrp():
         self._interval = settings.get('interval', 5)
         self._next_transmit = 0
         self._session = ClientSession()
-        self._last_payload = {}
+        self._last_payload = {
+                'utc': int(time()),
+                'power': 0,
+                'current': 0,
+                'speed': 0,
+                }
 
     async def transmit(self, dataset):
         """ forward data to ABRP """
         now = monotonic()
-        fields = {}
+        payload = self._last_payload
         for data in dataset:
-            fields.update({key: value for key, value in data.items()
-                if key in PID_MAP})
+            payload.update({v[0]: round(data[k], v[1]) for k, v in PID_MAP.items()
+                            if k in data and data[k] is not None})
 
         if now >= self._next_transmit:
-            payload = self._last_payload
-            payload.update({
-                'utc': int(fields['timestamp']),
-                'power': 0,
-                'current': 0,
-                'speed': 0,
-                })
-            payload.update({v[0]: round(fields[k], v[1]) for k, v in PID_MAP.items()
-                            if k in fields and fields[k] is not None})
-
             payload['speed'] *= 3.6
             if 'capacity' in payload:
                 payload['capacity'] /= 1000  # Wh -> kWh
