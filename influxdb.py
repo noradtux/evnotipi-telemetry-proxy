@@ -29,6 +29,10 @@ class InfluxDB():
         """ forward data to db as received """
         points = []
         for data in dataset:
+            if not 'timestamp' in data:
+                log.error('Timestamp missing %s', data)
+                continue
+
             point = {'measurement': 'telemetry', 'tags': {}}
 
             fields = {}
