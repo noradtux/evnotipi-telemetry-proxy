@@ -51,8 +51,9 @@ class Abrp():
         now = monotonic()
         payload = self._last_payload
         for data in dataset:
-            payload.update({v[0]: round(data[k], v[1]) for k, v in PID_MAP.items()
-                            if k in data and data[k] is not None})
+            payload.update({v[0]: (round(data[k], v[1]) if v[1] > 0 else int(round(data[k], 0)))
+                for k, v in PID_MAP.items()
+                if k in data and data[k] is not None})
 
         if now >= self._next_transmit:
             payload['speed'] *= 3.6

@@ -40,7 +40,7 @@ class EVNotify():
         evn = self._evn
         fields = self._last_fields
         for data in dataset:
-            fields.update({key: round(data[key], decimals)
+            fields.update({key: (round(data[key], decimals) if decimals > 0 else int(round(data[key], 0)))
                            for key, decimals in EXTENDED_FIELDS.items()
                            if key in data and data[key] is not None})
 
@@ -50,10 +50,10 @@ class EVNotify():
                 self._last_soc_b = data['SOC_BMS']
 
         now = monotonic()
+        soc_display = self._last_soc_d
+        soc_bms = self._last_soc_b
 
-        if now >= self._next_transmit:
-            soc_display = self._last_soc_d
-            soc_bms = self._last_soc_b
+        if now >= self._next_transmit and (soc_display or soc_bms):
             try:
                 await evn.setSOC(soc_display, soc_bms)
                 await evn.setExtended(fields)
