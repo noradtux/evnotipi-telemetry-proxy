@@ -6,7 +6,7 @@ from aiohttp import ClientSession, ClientConnectionError, ContentTypeError
 log = logging.getLogger('ABRP')
 
 PID_MAP = {
-    'timestamp':        ('timestamp', 0),
+    'timestamp':        ('utc', 0),                 # s
     'SOC_DISPLAY':      ('soc', 1),                 # %
     'dcBatteryPower':   ('power', 2),               # kW
     'speed':            ('speed', 1),               # km/h
@@ -16,7 +16,7 @@ PID_MAP = {
     'rapidChargePort':  ('is_dcfc', 0),             # bool 1/0
     'isParked':         ('is_parked', 0),           # bool 1/0
     'cumulativeEnergyCharged': ('kwh_charged', 2),  # kWh
-    'soh':              ('soh', 1),                 # %
+    'soh':              ('soh', 0),                 # %
     'heading':          ('heading', 2),             # °
     'altitude':         ('elevation', 1),           # m
     'externalTemperature':   ('ext_temp', 1),       # °C
@@ -39,24 +39,37 @@ class Abrp():
         self._interval = settings.get('interval', 5)
         self._next_transmit = 0
         self._session = ClientSession()
-        self._last_payload = {
-                'utc': int(time()),
-                'power': 0,
-                'current': 0,
-                'speed': 0,
-                }
+        self._last_dataset = {}
+        self._submit_queue = []
 
-    async def transmit(self, dataset):
+    async def transmit(self, new_dataset):
         """ forward data to ABRP """
         now = monotonic()
-        payload = self._last_payload
-        for data in dataset:
-            payload.update({v[0]: (round(data[k], v[1]) if v[1] > 0 else int(round(data[k], 0)))
-                            for k, v in PID_MAP.items()
-                            if k in data and data[k] is not None})
+        dataset = self._last_dataset
+        queue = self._submit_queue
+        for data in new_dataset:
+            dataset.update({v[0]: data[k]
+                            for k, v in PID_MAP.items() if k in data})
+            queue.append(dataset.copy())
 
-        if now >= self._next_transmit:
-            payload['speed'] *= 3.6
+        if now >= self._next_transmit and len(queue) > 0:
+            payload = {}
+            for key, decimals in PID_MAP.values():
+                data = [point[key] for point in queue \
+                        if key in point and point[key] is not None]
+                data_len = len(data)
+                if data_len > 0:
+                    avg = sum(data) / data_len
+                    payload[key] = round(avg, decimals) if decimals > 0 else \
+                                   int(round(avg, 0))
+
+            if 'utc' not in payload:
+                return
+
+            queue.clear()
+
+            if 'speed' in payload:
+                payload['speed'] *= 3.6
             if 'capacity' in payload:
                 payload['capacity'] /= 1000  # Wh -> kWh
 
@@ -64,7 +77,7 @@ class Abrp():
                 json = {'api_key': self._api_key,
                         'token': self._token,
                         'tlm': payload}
-                log.debug('Send payload %s', json)
+                #log.debug('Send payload %s', json)
                 ret = await self._session.post(API_URL + "/send", json=json)
                 async with ret:
                     if ret.content_type == 'application/json':
