@@ -55,7 +55,7 @@ async def set_service_settings(request):
 
     # not sure how to hadle mqtt yet. Hardcode for now...
     if 'mqtt' not in settings:
-        settings['mqtt'] = {'mqtt_server': C['mqtt_server'], 'enable': True}
+        settings['mqtt'] = C['mqtt']
 
     SERVICES[carid] = {}
 
