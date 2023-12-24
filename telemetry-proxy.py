@@ -112,4 +112,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     app = web.Application()
     app.add_routes(routes)
-    web.run_app(app, path=args.path, port=args.port)
+    web.run_app(app, host='::1', path=args.path, port=int(args.port))
