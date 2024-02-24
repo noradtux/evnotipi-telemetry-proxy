@@ -8,12 +8,15 @@ class Mqtt():
     """ State wrapper """
 
     def __init__(self, settings, carid):
-        self._mqtt_server = settings['server']
-        self._mqtt_port = settings['port']
-        self._mqtt_user = settings['user']
-        self._mqtt_pass = settings['pass']
+        self._mqtt_client = aiomqtt.Client(hostname=settings['server'],
+                                           port=settings['port'],
+                                           username=settings['user'],
+                                           password=settings['pass'])
         self._carid = carid
         self._last_soc = None
+
+    async def close(self):
+        pass
 
     async def transmit(self, dataset):
         carid = self._carid
@@ -23,10 +26,7 @@ class Mqtt():
                 self._last_soc = fields['SOC_DISPLAY']
 
         if self._last_soc is not None:
-            async with aiomqtt.Client(hostname=self._mqtt_server,
-                                      port=self._mqtt_port,
-                                      username=self._mqtt_user,
-                                      password=self._mqtt_pass) as client:
+            async with self._mqtt_client as client:
                 await client.publish(f'Car/{carid}/SOC',
                                      payload=float(self._last_soc))
 

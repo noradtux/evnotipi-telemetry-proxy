@@ -25,6 +25,9 @@ class InfluxDB():
                 token=settings['token'])
         self._iwrite = self._influx.write_api()
 
+    async def close(self):
+        await self._influx.close()
+
     async def transmit(self, dataset):
         """ forward data to db as received """
         points = []

@@ -42,6 +42,9 @@ class Abrp():
         self._last_dataset = {}
         self._submit_queue = []
 
+    async def close(self):
+        await self._session.close()
+
     async def transmit(self, new_dataset):
         """ forward data to ABRP """
         now = monotonic()

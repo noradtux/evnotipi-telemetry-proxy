@@ -35,6 +35,9 @@ class EVNotify():
         self._last_soc_d = None
         self._last_soc_b = None
 
+    async def close(self):
+        await self._evn._session.close()
+
     async def transmit(self, dataset):
         """ Forward data to EVNotify """
         evn = self._evn

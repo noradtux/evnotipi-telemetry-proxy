@@ -57,6 +57,12 @@ async def set_service_settings(request):
     if 'mqtt' not in settings:
         settings['mqtt'] = C['mqtt']
 
+    if carid in SERVICES:
+        #cleanup old connectors
+        services = [svc.close()
+                    for svc in SERVICES[carid].values()]
+        await gather(*services)
+
     SERVICES[carid] = {}
 
     fields = set()
@@ -108,8 +114,16 @@ async def transmit(request):
     return web.Response()
 
 
+async def cleanup(app):
+    services = [svc.close()
+                for svc in [car_services.values()
+                for car_services in SERVICES]]
+    await gather(*servces)
+
+
 if __name__ == '__main__':
     args = parser.parse_args()
     app = web.Application()
+    app.on_cleanup.append(cleanup)
     app.add_routes(routes)
     web.run_app(app, host='::1', path=args.path, port=int(args.port))
