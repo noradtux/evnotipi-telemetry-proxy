@@ -1,4 +1,4 @@
-from .evnotify import CommunicationError, EVNotify
+from .evnotify import CommunicationError, RateLimit, EVNotify
 
 __all__ = [
         'CommunicationError',
