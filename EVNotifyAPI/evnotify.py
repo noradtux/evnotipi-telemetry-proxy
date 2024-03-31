@@ -47,6 +47,8 @@ class EVNotify:
 
         except aiohttp.ClientConnectionError:
             raise CommunicationError("connection failed")
+        except aiohttp.client_exceptions.ClientOSError as e:
+            raise CommunicationError(f"Client OS Error {e}")
         #except requests.exceptions.Timeout:
         #    raise CommunicationError("timeout")
 
