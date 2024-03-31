@@ -69,10 +69,10 @@ class EVNotify():
                                 for a in ('latitude', 'longitude', 'speed')}
                     await evn.setLocation({'location': location})
             except EVNotifyAPI.RateLimit as err:
-                log.warning(f'Rate Limited, sleeping 60s {err}')
+                log.warning('Rate Limited, sleeping 60s (%s)', err)
                 self._next_transmit += 60
             except EVNotifyAPI.CommunicationError as err:
-                log.error(f'Communication Error: {err}')
+                log.error('Communication Error: %s', err)
             finally:
                 self._next_transmit = now + self._interval
 
