@@ -81,7 +81,12 @@ async def set_service_settings(request):
                 svc = EVNotify(svc_settings)
             case _:
                 # Unknown service, skip rest of loop
+                log.warning('Got unknown service %s', service)
                 continue
+
+        if type(svc) is str:
+            log.warning('Got bad service %s (%s)', service, svc)
+            continue
 
         SERVICES[carid][service] = svc
         svc_fields = svc.which_fields()
@@ -117,8 +122,8 @@ async def transmit(request):
 async def cleanup(app):
     services = [svc.close()
                 for svc in [car_services.values()
-                for car_services in SERVICES]]
-    await gather(*servces)
+                for car_services in SERVICES.values()]]
+    await gather(*services)
 
 
 if __name__ == '__main__':
