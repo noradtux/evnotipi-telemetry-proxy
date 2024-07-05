@@ -4,6 +4,7 @@ import logging
 from influxdb_client.client.exceptions import InfluxDBError
 from influxdb_client.client.influxdb_client_async import InfluxDBClientAsync
 import pyrfc3339
+from aiohttp.client_exceptions import ClientConnectorError
 
 log = logging.getLogger('InfluxDB')
 
@@ -60,7 +61,9 @@ class InfluxDB():
                                      record=points)
             points.clear()
         except InfluxDBError as exception:
-            log.warning(str(exception))
+            log.warning("InfluxDBError(%s)", str(exception))
+        except ClientConnectorError as exception:
+            log.warning("aiohttp ClientConnectorError (%s)", str(exception))
 
     @staticmethod
     def which_fields():
