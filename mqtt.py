@@ -26,12 +26,12 @@ class Mqtt():
                 self._last_soc = fields['SOC_DISPLAY']
 
         if self._last_soc is not None:
-            try:
-                async with self._mqtt_client as client:
+            async with self._mqtt_client as client:
+                try:
                     await client.publish(f'Car/{carid}/SOC',
                                          payload=float(self._last_soc))
-            except aiomqtt.error.MqttError as e:
-                log.warning("MqttError(%s)", str(e))
+                except aiomqtt.error.MqttError as e:
+                    log.warning("MqttError(%s)", str(e))
 
     @staticmethod
     def which_fields():
