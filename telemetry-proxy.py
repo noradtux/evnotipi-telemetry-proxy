@@ -60,7 +60,8 @@ async def set_service_settings(request):
     if carid in SERVICES:
         #cleanup old connectors
         services = [svc.close()
-                    for svc in SERVICES[carid].values()]
+                    for svc in SERVICES[carid].values()
+                    if hasattr(svc, 'close')]
         await gather(*services)
 
     SERVICES[carid] = {}
@@ -122,7 +123,8 @@ async def transmit(request):
 async def cleanup(app):
     services = [svc.close()
                 for svc in [car_services.values()
-                for car_services in SERVICES.values()]]
+                    for car_services in SERVICES.values()]
+                if hasattr(svc, 'close')]
     await gather(*services)
 
 
